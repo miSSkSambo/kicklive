@@ -1,0 +1,432 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>KickLive — Create teams & live score</title>
+  <meta name="description" content="KickLive — create teams, run live matches, and track scores with confetti celebrations.">
+  <meta property="og:title" content="KickLive — Create teams & live score">
+  <meta property="og:description" content="Create teams, start matches, track live scores, and save history — works offline.">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="assets/logo.svg">
+  <link rel="icon" type="image/png" href="assets/favicon.png">
+
+  <style>
+    :root{--bg:#0b1020;--card:#0f1724;--accent:#ffcb2f;--muted:#9aa7bf;--glass:rgba(255,255,255,0.04)}
+    *{box-sizing:border-box;font-family:Inter,ui-sans-serif,system-ui,Segoe UI,Roboto,'Helvetica Neue',Arial}
+    body{margin:0;background:linear-gradient(180deg,#071028 0%, #07141f 60%), radial-gradient(800px 400px at 10% 10%, rgba(255,203,47,0.06), transparent);color:#eaf2ff;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:18px}
+    .wrap{width:1100px;max-width:98%;display:grid;grid-template-columns:360px 1fr;gap:16px}
+
+    /* Left panel */
+    .panel{background:linear-gradient(180deg, rgba(255,255,255,0.02), transparent);border-radius:14px;padding:14px;box-shadow:0 6px 30px rgba(2,6,23,0.6);border:1px solid rgba(255,255,255,0.02)}
+    h1{font-size:18px;margin:0 0 8px;color:var(--accent)}
+    p.lead{margin:0 0 12px;color:var(--muted)}
+
+    label{display:block;font-size:13px;color:var(--muted);margin-top:8px}
+    input[type=text],select{width:100%;padding:9px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);background:transparent;color:inherit}
+    button{cursor:pointer;padding:10px 12px;border-radius:10px;border:0;background:linear-gradient(90deg,var(--accent),#ff9b2f);color:#081024;font-weight:600}
+    .small{font-size:13px;color:var(--muted)}
+
+    .team-list{margin-top:12px;display:flex;flex-direction:column;gap:8px;max-height:260px;overflow:auto}
+    .team-card{display:flex;align-items:center;gap:10px;padding:10px;border-radius:10px;background:linear-gradient(180deg,rgba(255,255,255,0.01),transparent);border:1px solid rgba(255,255,255,0.02)}
+    .avatar{width:48px;height:48px;border-radius:50%;background:linear-gradient(135deg,#13243b,#0b3550);display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--accent);font-size:16px}
+    .tmeta{flex:1}
+    .tmeta b{display:block}
+    .tiny{font-size:12px;color:var(--muted)}
+
+    /* Right panel */
+    .stage{display:flex;flex-direction:column;gap:12px}
+    .match-card{background:linear-gradient(180deg, rgba(255,255,255,0.02), transparent);border-radius:14px;padding:14px;border:1px solid rgba(255,255,255,0.03)}
+    .scoreboard{display:flex;align-items:center;justify-content:space-between;gap:12px}
+    .team-box{flex:1;text-align:center}
+    .team-box .name{font-weight:700;font-size:18px}
+    .score{font-size:48px;font-weight:800;color:var(--accent)}
+    .vs{font-size:13px;color:var(--muted)}
+
+    .controls{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+    .controls button{background:transparent;border:1px solid rgba(255,255,255,0.06);color:var(--accent);padding:10px 14px;border-radius:10px;font-weight:700}
+
+    .log{background:rgba(255,255,255,0.02);padding:8px;border-radius:8px;height:140px;overflow:auto;color:var(--muted)}
+
+    /* soccer ball effect */
+    .pitch{position:relative;height:140px;background:linear-gradient(180deg,#0d1a2b,#071026);border-radius:10px;border:1px solid rgba(255,255,255,0.02);display:flex;align-items:center;justify-content:center;overflow:hidden}
+    .ball{width:44px;height:44px;border-radius:50%;background:conic-gradient(from 120deg,#fff 0 40%,#000 40% 60%,#fff 60%);box-shadow:0 6px 20px rgba(2,6,23,0.5);position:absolute;transform:translate(-50%,-50%);left:50%;top:50%;animation:ballBounce 2s infinite}
+    @keyframes ballBounce{0%{transform:translate(-50%,-60%) scale(1)}30%{transform:translate(-30%,40%) scale(0.9)}60%{transform:translate(30%,-10%) scale(1.05)}100%{transform:translate(-50%,-60%) scale(1)}}
+
+    /* goal pulse */
+    .goal-pulse{position:absolute;left:50%;top:50%;translate:-50% -50%;width:0;height:0;border-radius:50%;pointer-events:none}
+    .goal-pulse.active{animation:goalPulse 900ms ease-out}
+    @keyframes goalPulse{0%{box-shadow:0 0 0 0 rgba(255,203,47,0.6)}50%{box-shadow:0 0 0 60px rgba(255,203,47,0.06)}100%{box-shadow:0 0 0 0 rgba(255,203,47,0)}}
+
+    /* confetti */
+    .confetti{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+    .confetti i{position:absolute;width:10px;height:18px;background:var(--accent);opacity:0.95;transform-origin:center;animation:fall 1500ms linear forwards}
+    @keyframes fall{to{transform:translateY(400px) rotate(720deg);opacity:0}}
+
+    .meta-row{display:flex;gap:8px;align-items:center}
+    .timer{font-weight:700;color:var(--muted);background:rgba(255,255,255,0.02);padding:6px 10px;border-radius:8px}
+
+    footer{margin-top:10px;color:var(--muted);font-size:13px;text-align:center}
+
+    /* mobile friendly */
+    @media (max-width:880px){
+      .wrap{grid-template-columns:1fr;padding:12px}
+      .panel{padding:12px}
+      .score{font-size:40px}
+      .controls button{flex:1;padding:12px}
+      .team-list{max-height:140px}
+      .avatar{width:44px;height:44px;font-size:14px}
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="panel">
+      <h1>KickLive • Team Builder</h1>
+      <p class="lead">Create teams, set matches and follow live scores. Designed for students and casual leagues.</p>
+
+      <label>Team name</label>
+      <input id="teamName" type="text" placeholder="e.g., Campus FC" />
+
+      <label>Team colour / short tag</label>
+      <input id="teamTag" type="text" placeholder="Short tag (3-4 letters)" maxlength="4" />
+
+      <div style="display:flex;gap:8px;margin-top:10px">
+        <button id="createTeam">Create Team</button>
+        <button id="clearTeams" style="background:transparent;color:var(--muted);border:1px solid rgba(255,255,255,0.04)">Clear All</button>
+      </div>
+
+      <div style="margin-top:14px">
+        <div class="small">Saved teams</div>
+        <div id="teams" class="team-list"></div>
+      </div>
+
+      <hr style="border:none;border-top:1px solid rgba(255,255,255,0.02);margin:14px 0">
+
+      <div class="small">Create a match</div>
+      <label>Home team</label>
+      <select id="home"></select>
+      <label>Away team</label>
+      <select id="away"></select>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <button id="startMatch">Start Match</button>
+        <button id="stopMatch" style="background:transparent;color:var(--muted);border:1px solid rgba(255,255,255,0.04)">End Match</button>
+      </div>
+
+      <footer>Tip: Use the live controls on the right to simulate goals or auto-play the match.</footer>
+    </div>
+
+    <div class="stage">
+      <div class="match-card">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <div>
+            <div class="small">Live Match</div>
+            <div id="matchTitle" style="font-weight:700">No match running</div>
+          </div>
+          <div class="meta-row">
+            <div class="timer" id="matchTimer">00:00</div>
+            <div class="controls">
+              <button id="goalHome">+ Goal Home</button>
+              <button id="goalAway">+ Goal Away</button>
+              <button id="autoPlay">Auto-play</button>
+              <button id="resetScore" style="background:transparent;color:var(--muted);border:1px solid rgba(255,255,255,0.04)">Reset</button>
+            </div>
+          </div>
+        </div>
+
+        <div style="margin-top:12px" class="scoreboard">
+          <div class="team-box" id="homeBox">
+            <div class="name" id="homeName">—</div>
+            <div class="tiny">tag: <span id="homeTag">—</span></div>
+          </div>
+          <div style="text-align:center">
+            <div class="score" id="homeScore">0</div>
+            <div class="vs">vs</div>
+            <div class="score" id="awayScore">0</div>
+          </div>
+          <div class="team-box" id="awayBox">
+            <div class="name" id="awayName">—</div>
+            <div class="tiny">tag: <span id="awayTag">—</span></div>
+          </div>
+        </div>
+
+        <div style="margin-top:12px" class="pitch" id="pitch">
+          <div class="ball" id="ball" title="Soccer ball - animated"></div>
+          <div class="goal-pulse" id="pulse"></div>
+          <div class="confetti" id="confetti"></div>
+        </div>
+
+        <div style="margin-top:12px" class="log" id="log">Match log will appear here...</div>
+      </div>
+
+      <div class="panel">
+        <h1>Match History</h1>
+        <p class="lead">Past matches and quick stats</p>
+        <div id="history" style="display:grid;gap:8px"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ---------- CONFIG ----------
+    const WS_URL = '';
+
+    // ---------- DOM ----------
+    const $ = id => document.getElementById(id);
+    const teamsEl = $('teams'), homeSel = $('home'), awaySel = $('away'), historyEl = $('history');
+    const teamName = $('teamName'), teamTag = $('teamTag');
+    const createTeamBtn = $('createTeam'), clearTeamsBtn = $('clearTeams');
+    const startMatchBtn = $('startMatch'), stopMatchBtn = $('stopMatch');
+    const matchTitle = $('matchTitle');
+    const homeName = $('homeName'), awayName = $('awayName'), homeTagEl = $('homeTag'), awayTagEl = $('awayTag');
+    const homeScoreEl = $('homeScore'), awayScoreEl = $('awayScore');
+    const logEl = $('log');
+    const goalHomeBtn = $('goalHome'), goalAwayBtn = $('goalAway'), resetScoreBtn = $('resetScore');
+    const autoPlayBtn = $('autoPlay');
+    const ball = $('ball'), pulse = $('pulse'), confettiEl = $('confetti');
+    const matchTimerEl = $('matchTimer');
+
+    // ---------- STATE ----------
+    let state = {
+      teams: [],
+      currentMatch: null,
+      history: [],
+      autoPlayInterval: null
+    };
+
+    const initialTeams = [
+      {name:'Campus FC',tag:'CAMP'}, {name:'Varsity United',tag:'VARS'}, {name:'Township Tigers',tag:'TIGR'},
+      {name:'City Strikers',tag:'CITY'}, {name:'Riverside Rangers',tag:'RANG'}, {name:'Highland Hawks',tag:'HAWK'},
+      {name:'Metro Warriors',tag:'METR'}, {name:'Lakeside Lions',tag:'LION'}, {name:'Desert Eagles',tag:'EGLS'},
+      {name:'Ocean Sharks',tag:'SHRK'}, {name:'Forest Wolves',tag:'WOLF'}, {name:'Mountain Bears',tag:'BEAR'},
+      {name:'Golden Stars',tag:'GOLD'}, {name:'North Knights',tag:'KNHT'}, {name:'South Falcons',tag:'FALC'},
+      {name:'East Phoenix',tag:'PHNX'}, {name:'West Titans',tag:'TITN'}, {name:'Urban Rockets',tag:'ROKT'}
+    ];
+
+    // ---------- Realtime WebSocket (optional) ----------
+    let socket = null; let localOnly = true;
+
+    function connectSocket(){
+      if(!WS_URL) return;
+      try {
+        socket = new WebSocket(WS_URL);
+        socket.addEventListener('open', ()=>{ localOnly = false; console.log('WS connected'); sendSync(); addLog('Realtime: connected'); });
+        socket.addEventListener('message', e=>{
+          try{ const msg = JSON.parse(e.data); handleRemoteMessage(msg); } catch(err){ console.warn('ws parse', err); }
+        });
+        socket.addEventListener('close', ()=>{ localOnly = true; addLog('Realtime: disconnected'); });
+        socket.addEventListener('error', ()=>{ localOnly = true; addLog('Realtime: error'); });
+      } catch(err){ console.warn('ws err', err); localOnly = true; }
+    }
+
+    function sendSync(){
+      if(localOnly || !socket || socket.readyState !== 1) return;
+      socket.send(JSON.stringify({type:'sync', state}));
+    }
+
+    function broadcastEvent(evt){
+      if(localOnly || !socket || socket.readyState !== 1) return;
+      socket.send(JSON.stringify({type:'event', event: evt}));
+    }
+
+    function handleRemoteMessage(msg){
+      if(msg.type === 'sync' && msg.state){
+        state.teams = msg.state.teams || state.teams;
+        state.history = msg.state.history || state.history;
+        if(msg.state.currentMatch) state.currentMatch = msg.state.currentMatch;
+        save(); renderTeams(); renderHistory(); updateMatchUI(); addLog('Realtime: state synced from server');
+      } else if(msg.type === 'event' && msg.event){
+        if(msg.event.name === 'goal' && state.currentMatch){
+          goal(msg.event.side, 'remote');
+        }
+      }
+    }
+
+    // ---------- persistence ----------
+    function save(){
+      localStorage.setItem('kicklive', JSON.stringify(state));
+      sendSync();
+    }
+    function load(){
+      const raw = localStorage.getItem('kicklive');
+      if(raw) state = JSON.parse(raw);
+    }
+
+    function shortTag(name){ return (name||'TEAM').toString().toUpperCase().slice(0,4); }
+
+    // ---------- UI renders ----------
+    function renderTeams(){
+      teamsEl.innerHTML = ''; homeSel.innerHTML = '<option value="">Select</option>'; awaySel.innerHTML = '<option value="">Select</option>';
+      state.teams.forEach((t, i)=>{
+        const div = document.createElement('div'); div.className = 'team-card';
+        div.innerHTML = `<div class="avatar">${t.tag}</div><div class="tmeta"><b>${t.name}</b><div class="tiny">tag: ${t.tag} • id:${i}</div></div><div><button data-i="${i}" class="use">Use</button></div>`;
+        teamsEl.appendChild(div);
+        const opt = document.createElement('option'); opt.value = i; opt.textContent = `${t.name} (${t.tag})`;
+        homeSel.appendChild(opt.cloneNode(true));
+        awaySel.appendChild(opt);
+      });
+      Array.from(document.querySelectorAll('.use')).forEach(btn => btn.addEventListener('click', e=>{
+        const i = e.currentTarget.dataset.i;
+        if(homeSel.value === '') homeSel.value = i;
+        else awaySel.value = i;
+      }));
+    }
+
+    function renderHistory(){
+      historyEl.innerHTML = '';
+      if(state.history.length === 0) { historyEl.innerHTML = '<div class="tiny">No matches yet</div>'; return; }
+      state.history.slice().reverse().forEach(m => {
+        const div = document.createElement('div'); div.className = 'team-card';
+        const dateText = m.date ? new Date(m.date).toLocaleString() : new Date(m.ended || Date.now()).toLocaleString();
+        div.innerHTML = `<div class="tmeta"><b>${m.home.name} ${m.homeScore} - ${m.awayScore} ${m.away.name}</b><div class="tiny">${dateText}</div></div>`;
+        historyEl.appendChild(div);
+      });
+    }
+
+    function addLog(text){
+      const time = new Date().toLocaleTimeString();
+      logEl.innerHTML = `<div style="margin-bottom:6px"><b class="tiny">[${time}]</b> ${text}</div>` + logEl.innerHTML;
+    }
+
+    // ---------- team management ----------
+    createTeamBtn.addEventListener('click', ()=>{
+      const name = teamName.value.trim();
+      const tag = (teamTag.value.trim() || shortTag(name)).toUpperCase();
+      if(!name) return alert('Please enter a team name');
+      state.teams.push({name, tag});
+      save(); renderTeams(); teamName.value = ''; teamTag.value = '';
+      addLog(`Team created: ${name}`);
+    });
+
+    clearTeamsBtn.addEventListener('click', ()=>{
+      if(!confirm('Clear all teams and history?')) return;
+      state.teams = []; state.history = []; state.currentMatch = null;
+      save(); renderTeams(); renderHistory(); updateMatchUI(); addLog('Cleared teams and history');
+    });
+
+    // ---------- match timer ----------
+    let matchTimer = { interval: null, seconds: 0, running: false };
+    function startTimer(){ if(matchTimer.interval) clearInterval(matchTimer.interval); matchTimer.running = true; matchTimer.interval = setInterval(()=>{ matchTimer.seconds++; updateTimer(); }, 1000); }
+    function pauseTimer(){ matchTimer.running = false; if(matchTimer.interval) clearInterval(matchTimer.interval); }
+    function resetTimer(){ matchTimer.seconds = 0; updateTimer(); }
+    function updateTimer(){ const s = matchTimer.seconds; const mm = String(Math.floor(s/60)).padStart(2,'0'); const ss = String(s%60).padStart(2,'0'); matchTimerEl.textContent = `${mm}:${ss}`; }
+
+    // ---------- match lifecycle ----------
+    startMatchBtn.addEventListener('click', ()=>{
+      const h = homeSel.value; const a = awaySel.value;
+      if(h === '' || a === '') return alert('Select both teams');
+      if(h === a) return alert('Choose two different teams');
+      const home = state.teams[+h]; const away = state.teams[+a];
+      state.currentMatch = { home: {...home}, away: {...away}, homeScore:0, awayScore:0, started: Date.now(), events: [] };
+      resetTimer(); startTimer();
+      save(); updateMatchUI(); addLog(`Match started: ${home.name} vs ${away.name}`);
+    });
+
+    stopMatchBtn.addEventListener('click', ()=>{
+      if(!state.currentMatch) return alert('No running match');
+      finishMatch('Ended by user');
+    });
+
+    function updateMatchUI(){
+      if(!state.currentMatch){
+        matchTitle.textContent = 'No match running';
+        homeName.textContent = '—'; awayName.textContent = '—';
+        homeScoreEl.textContent = '0'; awayScoreEl.textContent = '0';
+        homeTagEl.textContent = '—'; awayTagEl.textContent = '—';
+        pauseTimer(); resetTimer(); return;
+      }
+      const m = state.currentMatch;
+      matchTitle.textContent = `${m.home.name} vs ${m.away.name}`;
+      homeName.textContent = m.home.name; awayName.textContent = m.away.name;
+      homeTagEl.textContent = m.home.tag; awayTagEl.textContent = m.away.tag;
+      homeScoreEl.textContent = m.homeScore; awayScoreEl.textContent = m.awayScore;
+    }
+
+    function goal(side, src = 'manual'){
+      if(!state.currentMatch) return;
+      const m = state.currentMatch;
+      if(side === 'home') m.homeScore++; else m.awayScore++;
+      m.events.push({ type: 'goal', side, src, time: Date.now() });
+      save(); updateMatchUI(); addLog(`${side === 'home' ? m.home.name : m.away.name} scored! (${src})`);
+      pulse.classList.add('active'); setTimeout(()=>pulse.classList.remove('active'), 900);
+      animateBallTo(side);
+      if(side === 'home' && m.homeScore - m.awayScore >= 3) celebrate();
+      if(side === 'away' && m.awayScore - m.homeScore >= 3) celebrate();
+      broadcastEvent({ name: 'goal', side });
+    }
+
+    goalHomeBtn.addEventListener('click', ()=>goal('home', 'manual'));
+    goalAwayBtn.addEventListener('click', ()=>goal('away', 'manual'));
+
+    resetScoreBtn.addEventListener('click', ()=>{
+      if(!state.currentMatch) return;
+      state.currentMatch.homeScore = 0; state.currentMatch.awayScore = 0;
+      save(); updateMatchUI(); addLog('Scores reset');
+    });
+
+    function finishMatch(note){
+      const m = state.currentMatch;
+      if(!m) return;
+      m.ended = Date.now(); m.date = new Date().toISOString(); m.note = note || 'Finished';
+      state.history.push(m);
+      state.currentMatch = null;
+      save(); renderHistory(); updateMatchUI(); addLog('Match finished: ' + note);
+      stopAutoPlay(); pauseTimer();
+    }
+
+    // ---------- autoplay ----------
+    function stopAutoPlay(){ if(state.autoPlayInterval) clearInterval(state.autoPlayInterval); state.autoPlayInterval = null; autoPlayBtn.textContent = 'Auto-play'; autoPlayBtn.style.background = ''; }
+    autoPlayBtn.addEventListener('click', ()=>{
+      if(state.autoPlayInterval){ stopAutoPlay(); return; }
+      if(!state.currentMatch) return alert('Start a match first');
+      state.autoPlayInterval = setInterval(()=>{
+        if(Math.random() < 0.25){ const side = Math.random() < 0.5 ? 'home' : 'away'; goal(side, 'auto'); }
+      }, 1400);
+      autoPlayBtn.textContent = 'Stop auto'; autoPlayBtn.style.background = 'linear-gradient(90deg,#ff6b6b,#ff9b2f)';
+    });
+
+    // ---------- animations ----------
+    function animateBallTo(side){
+      if(!ball) return;
+      ball.style.transition = 'transform 600ms ease';
+      if(side === 'home') ball.style.transform = 'translate(-30%,0) scale(0.9)';
+      else ball.style.transform = 'translate(30%,0) scale(0.9)';
+      setTimeout(()=>ball.style.transform = 'translate(-50%,-50%) scale(1)', 700);
+    }
+
+    function celebrate(){
+      for(let i=0;i<24;i++){
+        const el = document.createElement('i');
+        el.style.left = (10 + Math.random() * 80) + '%';
+        el.style.background = randomColor();
+        el.style.top = '-20px';
+        el.style.transform = 'rotate('+Math.random()*360+'deg)';
+        el.style.animationDelay = (Math.random() * 300) + 'ms';
+        confettiEl.appendChild(el);
+        setTimeout(()=>el.remove(), 2200);
+      }
+    }
+
+    function randomColor(){ const palette=['#ffcb2f','#ff6b6b','#6bf0ff','#7aff8c','#c08cff']; return palette[Math.floor(Math.random()*palette.length)]; }
+
+    // ---------- init ----------
+    load(); connectSocket();
+    if(state.teams.length === 0){ state.teams.push(...initialTeams); save(); }
+    renderTeams(); renderHistory(); updateMatchUI();
+
+    historyEl.addEventListener('click', e=>{
+      const target = e.target.closest('.team-card'); if(!target) return;
+      const idx = Array.from(historyEl.children).indexOf(target);
+      const m = state.history.slice().reverse()[idx];
+      if(!m) return;
+      alert(`${m.home.name} ${m.homeScore} - ${m.awayScore} ${m.away.name}\n${new Date(m.date).toLocaleString()}\nNote: ${m.note || '—'}`);
+    });
+
+    document.addEventListener('keydown', e=>{
+      if(e.key.toLowerCase() === 'g'){ if(!state.currentMatch) return; const side = Math.random() < 0.5 ? 'home' : 'away'; goal(side,'kbd'); }
+    });
+
+    window.addEventListener('beforeunload', save);
+  </script>
+</body>
+</html>

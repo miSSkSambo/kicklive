@@ -1,0 +1,13 @@
+{
+  "name": "kicklive",
+  "version": "1.0.0",
+  "description": "Create teams & live score \u2014 static web app with optional realtime via WebSocket.",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "start:ws": "node server.js"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  }
+}
